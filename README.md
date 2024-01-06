@@ -1,5 +1,8 @@
 # QUIC Noise
 
+> [!NOTE]
+> The QUIC Noise working group is not affilated with the QUIC working group or with the Noise authors.
+
 ## Introduction to QUIC
 
 [QUIC] is a new transport protocol that has many desirable features in modern peer-to-peer (P2P) networks.
@@ -109,6 +112,15 @@ since they support half-RTT encryption, will have their transport parameter resp
 ### 6. Authenticated negotiation of an application protocol
 
 QUIC-Noise will implement the same ALPN mechanism as TLS.
+
+## QUIC-Noise Specification
+
+### QUIC Version
+
+The QUIC Noise WG reserves the following versions for use with QUIC Noise `0xf0f0f3f[0-f]`.
+
+The remainder of this specification is what will be version `0xf0f0f3f0`. This document is in alpha and is not
+finalised.
 
 [ALPN]: https://www.rfc-editor.org/rfc/rfc7301.html
 [QUIC]: https://www.rfc-editor.org/rfc/rfc9000.html
