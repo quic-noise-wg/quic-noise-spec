@@ -151,6 +151,20 @@ It will then be followed by the initial Noise handshake data, with the handshake
 If the initial noise handshake is not encrypted, then these will be transported over plaintext. They will still be
 secured, however.
 
+### Handshake response
+
+If the responder can process the initial packet, they MUST do so. They will respond with an initial empty map CBOR payload.
+It will then be followed by the Noise handshake response data, with the handshake securing the CBOR payload:
+
+```json
+{
+    "alpn": [<ALPN identifier>],
+    "transport_parameters" <Encoded transport parameters>,
+}
+```
+
+The `alpn` response must contain at most a single application, as negotiated in the same way as [ALPN-TLS]
+
 ### Fallback packet
 
 If the responder cannot process the initial packet, e.g. because it contains encrypted data it cannot decrypt, it MAY choose
@@ -173,11 +187,9 @@ Because Bob was not able to validate the initial packet's transport parameters, 
 Alice --> Bob
     {
         "initial_pattern": "Noise_IK_25519_ChaChaPoly_BLAKE2b",
-        "supported_patterns": [
-            "Noise_XKfallback_25519_ChaChaPoly_SHA256",
-            "Noise_XKfallback_25519_AESGCM_BLAKE2B",
-            "Noise_XKfallback_25519_AESGCM_SHA256",
-        ],
+        "dh": ["25519"],
+        "cipher": ["ChaChaPoly", "AESGCM"],
+        "hash": ["BLAKE2b", "SHA256"],
     }
     e, es, s, ss
     {
@@ -187,13 +199,9 @@ Alice --> Bob
 
 Bob --> Alice
     {
-        "initial_pattern": "Noise_XKfallback_25519_ChaChaPoly_SHA256",
-        "supported_patterns": [
-            "Noise_XKfallback_25519_ChaChaPoly_SHA256",
-            "Noise_XKfallback_25519_AESGCM_SHA256",
-        ],
+        "fallback_pattern": "Noise_XKfallback_25519_ChaChaPoly_SHA256",
     }
-    e, ee
+    e, ee, s, es
     {
         "alpn": [...],
         "params": [...],
@@ -210,25 +218,55 @@ Alice --> Bob
     application data
 ```
 
-To prevent downgrade attacks, Bob MUST choose the first supported fallback pattern that Alice has requested. To ensure this,
-Bob MUST include all handshake patterns he can consider falling back to inside the supported patterns field.
-If Alice detects a fallback protocol she prefers that Bob supports, she will terminate the connection.
+### Retry packet
 
-If Bob's initial message is forged, it will fail to decrypt as it will be included as a prologue on both sides.
+If the initial handshake pattern contains a key-exchange protocol that the responder does not support, then a retry packet is sent instead.
 
-### Handshake response
+For example:
 
-If the responder can process the initial packet, they MUST do so. They will respond with an initial empty map CBOR payload.
-It will then be followed by the Noise handshake response data, with the handshake securing the CBOR payload:
+Alice sends Bob a `Noise_IK_25519_ChaChaPoly_BLAKE2b` handshake. However, Bob's static key uses Curve448 instead of Curve25519.
+Because a fallback cannot be performed in this case, Bob sends back a retry packet. The retry pattern is chosen using Alice's
+known supported methods. Alice MUST respond to a retry packet using that given pattern. If Alice does not support the pattern,
+she should terminate the connection.
 
-```json
-{
-    "alpn": [<ALPN identifier>],
-    "transport_parameters" <Encoded transport parameters>,
-}
 ```
+Alice --> Bob
+    {
+        "initial_pattern": "Noise_IK_25519_ChaChaPoly_BLAKE2b",
+        "dh": ["25519", "448"],
+        "cipher": ["ChaChaPoly", "AESGCM"],
+        "hash": ["BLAKE2b", "SHA256"],
+    }
+    e, es, s, ss
+    {
+        "alpn": [...],
+        "params": [...],
+    }
 
-The `alpn` response must contain at most a single application, as negotiated in the same way as [ALPN-TLS]
+Bob --> Alice
+    {
+        "retry_pattern": "Noise_IK_448_ChaChaPoly_BLAKE2b",
+    }
+
+Alice --> Bob
+    {}
+    e, es, s, ss
+    {
+        "alpn": [...],
+        "params": [...],
+    }
+
+Bob --> Alice
+    {}
+    e, ee, se
+    {
+        "alpn": [...],
+        "params": [...],
+    }
+
+Alice --> Bob
+    application data
+```
 
 ### Further handshake responses
 
